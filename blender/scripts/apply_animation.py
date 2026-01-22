@@ -4,9 +4,16 @@ import json
 from pathlib import Path
 
 FRAME_RATE = 24
+def apply_ease(obj, data_path, index=None):
+    action = obj.animation_data.action
+    for fcurve in action.fcurves:
+        if fcurve.data_path == data_path:
+            if index is None or fcurve.array_index == index:
+                for kp in fcurve.keyframe_points:
+                    kp.interpolation = 'BEZIER'
 
 
-def apply_jump(obj, start_frame, duration_frames):
+def apply_jump(obj, start_frame, duration_frames, height=2.0):
     mid_frame = start_frame + duration_frames // 2
     end_frame = start_frame + duration_frames
 
@@ -15,12 +22,16 @@ def apply_jump(obj, start_frame, duration_frames):
     obj.keyframe_insert(data_path="location", frame=start_frame)
 
     # Jump peak
-    obj.location.z = 2
+    obj.location.z = height
     obj.keyframe_insert(data_path="location", frame=mid_frame)
 
     # Land back
     obj.location.z = 0
     obj.keyframe_insert(data_path="location", frame=end_frame)
+
+    apply_ease(obj, "location", index=2)  # Z-axis
+
+
 
 
 def apply_wave(obj, start_frame, duration_frames):
@@ -38,6 +49,8 @@ def apply_wave(obj, start_frame, duration_frames):
     # Back to neutral
     obj.rotation_euler.z = 0
     obj.keyframe_insert(data_path="rotation_euler", frame=end_frame)
+    apply_ease(obj, "rotation_euler", index=2)  # Z rotation
+
 
 
 def main():
@@ -67,17 +80,21 @@ def main():
     current_frame = 1
 
     for action in timeline_data["timeline"]:
-        duration_frames = int(
-            (action["end_time"] - action["start_time"]) * FRAME_RATE
-        )
+        repeat = action.get("repeat", 1)
+        for _ in range(repeat):
+            duration_frames = int(
+                (action["end_time"] - action["start_time"]) * FRAME_RATE
+            )
 
-        if action["type"] == "jump":
-            apply_jump(obj, current_frame, duration_frames)
+            if action["type"] == "jump":
+                height = action.get("height", 2.0)
+                apply_jump(obj, current_frame, duration_frames, height)
 
-        elif action["type"] == "wave":
-            apply_wave(obj, current_frame, duration_frames)
 
-        current_frame += duration_frames
+            elif action["type"] == "wave":
+                apply_wave(obj, current_frame, duration_frames)
+
+            current_frame += duration_frames
 
     bpy.context.scene.frame_end = current_frame + 10
 
