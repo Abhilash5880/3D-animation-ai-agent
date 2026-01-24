@@ -54,3 +54,35 @@ outputs/blends/Remy_animated.blend
 ```bash
 "C:/Users/--your path--/blender.exe" "outputs/blends/Remy_animated.blend"
 ```
+
+## Demo videos
+#### Demo 1
+```
+Model: Remy.fbx
+prompt: "make the character wave and jump" 
+```
+output:
+<video width="600" controls>
+  <source src="demos/demo1.mp4" type="video/mp4">
+</video>
+
+#### Demo 2
+```
+Model: xchar.glb
+prompt: "make the character wave and jump" 
+```
+output:
+<video width="600" controls>
+  <source src="demos/demo2.mp4" type="video/mp4">
+</video>
+
+#### Demo 3
+```
+Model: ychar.glb
+prompt: "make the character wave and jump" 
+```
+output:
+<video width="600" controls>
+  <source src="demos/demo3.mp4" type="video/mp4">
+</video>
+
