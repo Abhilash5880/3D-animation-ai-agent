@@ -1,14 +1,16 @@
 from pydantic import BaseModel
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict, Any
 
 
 class AnimationAction(BaseModel):
     type: Literal["wave", "jump", "idle"]
     duration: Optional[float] = 2.0
+    params: Optional[Dict[str, Any]] = {}
 
 
 class AnimationPlan(BaseModel):
     actions: List[AnimationAction]
+
 
 class TimedAction(AnimationAction):
     start_time: float

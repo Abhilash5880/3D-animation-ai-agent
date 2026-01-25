@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 FRAME_RATE = 24
+
+
 def apply_ease(obj, data_path, index=None):
     action = obj.animation_data.action
     for fcurve in action.fcurves:
@@ -13,49 +15,56 @@ def apply_ease(obj, data_path, index=None):
                     kp.interpolation = 'BEZIER'
 
 
-def apply_jump(obj, start_frame, duration_frames, height=2.0):
+def apply_jump(obj, start_frame, duration_frames, params):
+    height = params.get("height", 2.0)
+
     mid_frame = start_frame + duration_frames // 2
     end_frame = start_frame + duration_frames
 
-    # Start on ground
     obj.location.z = 0
     obj.keyframe_insert(data_path="location", frame=start_frame)
 
-    # Jump peak
     obj.location.z = height
     obj.keyframe_insert(data_path="location", frame=mid_frame)
 
-    # Land back
     obj.location.z = 0
     obj.keyframe_insert(data_path="location", frame=end_frame)
 
-    apply_ease(obj, "location", index=2)  # Z-axis
+    apply_ease(obj, "location", index=2)
 
 
+def apply_wave(obj, start_frame, duration_frames, params):
+    speed = params.get("speed", "normal")
+    intensity = params.get("intensity", 1.0)
 
+    speed_multiplier = {
+        "slow": 1.5,
+        "normal": 1.0,
+        "fast": 0.7
+    }.get(speed, 1.0)
 
-def apply_wave(obj, start_frame, duration_frames):
-    mid_frame = start_frame + duration_frames // 2
-    end_frame = start_frame + duration_frames
+    adjusted_duration = int(duration_frames * speed_multiplier)
 
-    # Neutral rotation
+    mid_frame = start_frame + adjusted_duration // 2
+    end_frame = start_frame + adjusted_duration
+
     obj.rotation_euler.z = 0
     obj.keyframe_insert(data_path="rotation_euler", frame=start_frame)
 
-    # Rotate right
-    obj.rotation_euler.z = 1.0
+    obj.rotation_euler.z = intensity
     obj.keyframe_insert(data_path="rotation_euler", frame=mid_frame)
 
-    # Back to neutral
     obj.rotation_euler.z = 0
     obj.keyframe_insert(data_path="rotation_euler", frame=end_frame)
-    apply_ease(obj, "rotation_euler", index=2)  # Z rotation
 
+    apply_ease(obj, "rotation_euler", index=2)
+
+    return adjusted_duration
 
 
 def main():
     argv = sys.argv
-    argv = argv[argv.index("--") + 1 :]
+    argv = argv[argv.index("--") + 1:]
 
     if len(argv) < 2:
         raise RuntimeError("Expected arguments: <timeline.json> <output.blend>")
@@ -63,16 +72,13 @@ def main():
     timeline_path = Path(argv[0])
     output_blend_path = Path(argv[1])
 
-    # Reset scene
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
-    # Load timeline
     with open(timeline_path, "r") as f:
         timeline_data = json.load(f)
 
     print("Timeline received:", timeline_data)
 
-    # Create object (placeholder character)
     bpy.ops.mesh.primitive_cube_add()
     obj = bpy.context.active_object
     obj.name = "AnimatedObject"
@@ -80,21 +86,19 @@ def main():
     current_frame = 1
 
     for action in timeline_data["timeline"]:
-        repeat = action.get("repeat", 1)
-        for _ in range(repeat):
-            duration_frames = int(
-                (action["end_time"] - action["start_time"]) * FRAME_RATE
-            )
+        duration_frames = int(
+            (action["end_time"] - action["start_time"]) * FRAME_RATE
+        )
 
-            if action["type"] == "jump":
-                height = action.get("height", 2.0)
-                apply_jump(obj, current_frame, duration_frames, height)
+        params = action.get("params", {})
 
-
-            elif action["type"] == "wave":
-                apply_wave(obj, current_frame, duration_frames)
-
+        if action["type"] == "jump":
+            apply_jump(obj, current_frame, duration_frames, params)
             current_frame += duration_frames
+
+        elif action["type"] == "wave":
+            actual_duration = apply_wave(obj, current_frame, duration_frames, params)
+            current_frame += actual_duration
 
     bpy.context.scene.frame_end = current_frame + 10
 
@@ -104,3 +108,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
