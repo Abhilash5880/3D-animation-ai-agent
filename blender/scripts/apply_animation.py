@@ -104,6 +104,8 @@ def main():
 
     bpy.ops.wm.save_as_mainfile(filepath=str(output_blend_path))
     print(f"Saved animated blend file to {output_blend_path}")
+    print("[DEBUG] Action params received:", params)
+
 
 
 if __name__ == "__main__":

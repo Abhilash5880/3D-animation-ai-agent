@@ -11,11 +11,13 @@ def build_timeline(plan: AnimationPlan) -> TimedAnimationPlan:
 
         timeline.append(
             TimedAction(
-                type=action.type,
-                duration=action.duration,
-                start_time=start,
-                end_time=end,
+            type=action.type,
+            duration=action.duration,
+            params=action.params,
+            start_time=start,
+            end_time=end
             )
+
         )
 
         current_time = end
