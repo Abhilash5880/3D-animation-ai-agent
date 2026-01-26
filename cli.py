@@ -5,6 +5,7 @@ from rich import print
 
 from agent.prompt_parser import parse_prompt
 from agent.action_planner import build_timeline
+from agent.schemas import AnimationPlan
 from blender.run_blender import run_blender
 
 def main():
@@ -23,7 +24,8 @@ def main():
     print(f"[cyan]Prompt received:[/cyan] {prompt}")
     print(f"[cyan]Model path:[/cyan] {model_path}")
 
-    plan = parse_prompt(prompt)
+    actions = parse_prompt(prompt)
+    plan = AnimationPlan(actions=actions)
     print("[bold green]Generated Animation Plan:[/bold green]")
     print(plan.model_dump_json(indent=2))
 

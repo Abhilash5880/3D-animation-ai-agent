@@ -4,8 +4,8 @@ from typing import List, Literal, Optional, Dict, Any
 
 class AnimationAction(BaseModel):
     type: Literal["wave", "jump", "idle"]
-    duration: Optional[float] = 2.0
-    params: Optional[Dict[str, Any]] = {}
+    duration: Optional[float] = None
+    params: Dict[str, Any] = {}
 
 
 class AnimationPlan(BaseModel):

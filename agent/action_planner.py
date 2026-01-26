@@ -1,28 +1,33 @@
 from agent.schemas import AnimationPlan, TimedAnimationPlan, TimedAction
 
+DEFAULT_DURATIONS = {
+    "jump": 1.5,
+    "wave": 2.0,
+    "idle": 1.0,
+}
+
 
 def build_timeline(plan: AnimationPlan) -> TimedAnimationPlan:
-    current_time = 0.0
     timeline = []
+    current_time = 0.0
 
     for action in plan.actions:
-        start = current_time
-        end = start + (action.duration or 0)
+        base_duration = action.duration or DEFAULT_DURATIONS[action.type]
+        duration_mult = action.params.get("duration_mult", 1.0)
+        duration = base_duration * duration_mult
 
-        timeline.append(
-            TimedAction(
+        timed = TimedAction(
             type=action.type,
-            duration=action.duration,
+            duration=duration,
             params=action.params,
-            start_time=start,
-            end_time=end
-            )
-
+            start_time=current_time,
+            end_time=current_time + duration,
         )
 
-        current_time = end
+        timeline.append(timed)
+        current_time += duration
 
     return TimedAnimationPlan(
         timeline=timeline,
-        total_duration=current_time
+        total_duration=current_time,
     )

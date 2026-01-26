@@ -6,16 +6,14 @@ from pathlib import Path
 FRAME_RATE = 24
 
 
-# -------------------------------------------------
-# Utility helpers
-# -------------------------------------------------
+# ---------------- Utilities ---------------- #
 
 def force_bezier(action, data_path, index=None):
     for fcurve in action.fcurves:
         if fcurve.data_path == data_path:
             if index is None or fcurve.array_index == index:
                 for kp in fcurve.keyframe_points:
-                    kp.interpolation = 'BEZIER'
+                    kp.interpolation = "BEZIER"
 
 
 def get_armature():
@@ -29,13 +27,10 @@ def get_root_object():
     for obj in bpy.context.scene.objects:
         if obj.type in {"ARMATURE", "MESH"}:
             return obj
-    raise RuntimeError("No valid animation target found.")
+    raise RuntimeError("No animation target found.")
 
 
 def get_wave_bone(armature):
-    """
-    Try common Mixamo / generic bone names.
-    """
     candidates = [
         "mixamorig:RightHand",
         "mixamorig:RightForeArm",
@@ -43,120 +38,97 @@ def get_wave_bone(armature):
         "hand.R",
         "forearm.R",
     ]
-
     for name in candidates:
         if name in armature.pose.bones:
             return armature.pose.bones[name]
+    raise RuntimeError("Wave bone not found.")
 
-    raise RuntimeError("No suitable wave bone found.")
 
+# ---------------- Actions ---------------- #
 
-# -------------------------------------------------
-# Animation actions
-# -------------------------------------------------
+def apply_jump(obj, start_frame, duration_frames, height):
+    mid = start_frame + duration_frames // 2
+    end = start_frame + duration_frames
+    base = obj.location.z
 
-def apply_jump(obj, start_frame, duration_frames, height=2.0):
-    mid_frame = start_frame + duration_frames // 2
-    end_frame = start_frame + duration_frames
-
-    base_z = obj.location.z
-
-    obj.location.z = base_z - height * 0.15
+    obj.location.z = base
     obj.keyframe_insert("location", frame=start_frame)
 
-    obj.location.z = base_z + height
-    obj.keyframe_insert("location", frame=mid_frame)
+    obj.location.z = base + height
+    obj.keyframe_insert("location", frame=mid)
 
-    obj.location.z = base_z
-    obj.keyframe_insert("location", frame=end_frame)
+    obj.location.z = base
+    obj.keyframe_insert("location", frame=end)
 
-    force_bezier(obj.animation_data.action, "location", index=2)
+    force_bezier(obj.animation_data.action, "location", 2)
 
 
 def apply_wave(armature, start_frame, duration_frames):
     bone = get_wave_bone(armature)
-
-    mid_frame = start_frame + duration_frames // 2
-    end_frame = start_frame + duration_frames
+    mid = start_frame + duration_frames // 2
+    end = start_frame + duration_frames
 
     bone.rotation_mode = "XYZ"
 
-    bone.rotation_euler.z = 0.0
+    bone.rotation_euler.z = 0
     bone.keyframe_insert("rotation_euler", frame=start_frame)
 
     bone.rotation_euler.z = 0.9
-    bone.keyframe_insert("rotation_euler", frame=mid_frame)
+    bone.keyframe_insert("rotation_euler", frame=mid)
 
-    bone.rotation_euler.z = 0.0
-    bone.keyframe_insert("rotation_euler", frame=end_frame)
+    bone.rotation_euler.z = 0
+    bone.keyframe_insert("rotation_euler", frame=end)
 
-    action = armature.animation_data.action
-    force_bezier(action, f'pose.bones["{bone.name}"].rotation_euler', index=2)
+    force_bezier(
+        armature.animation_data.action,
+        f'pose.bones["{bone.name}"].rotation_euler',
+        2,
+    )
 
 
-# -------------------------------------------------
-# Main execution
-# -------------------------------------------------
+# ---------------- Main ---------------- #
 
 def main():
-    argv = sys.argv
-    argv = argv[argv.index("--") + 1:]
-
-    if len(argv) < 3:
-        raise RuntimeError(
-            "Usage: apply_animation.py <timeline.json> <model.glb> <output.blend>"
-        )
-
-    timeline_path = Path(argv[0])
-    model_path = Path(argv[1])
-    output_path = Path(argv[2])
+    argv = sys.argv[sys.argv.index("--") + 1:]
+    timeline_path, model_path, output_path = map(Path, argv)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.import_scene.gltf(filepath=str(model_path))
 
-    root_obj = get_root_object()
+    if model_path.suffix.lower() == ".fbx":
+        bpy.ops.import_scene.fbx(filepath=str(model_path))
+    else:
+        bpy.ops.import_scene.gltf(filepath=str(model_path))
+
+    root = get_root_object()
     armature = get_armature()
 
-    target = armature if armature else root_obj
+    target = armature if armature else root
     target.animation_data_create()
-    target.animation_data.action = bpy.data.actions.new("AI_Animation")
+    target.animation_data.action = bpy.data.actions.new("AI_Action")
 
-    with open(timeline_path, "r") as f:
-        timeline = json.load(f)
+    with open(timeline_path) as f:
+        timeline = json.load(f)["timeline"]
 
-    current_frame = 1
+    frame = 1
 
-    for action in timeline["timeline"]:
+    for action in timeline:
         duration_frames = int(
             (action["end_time"] - action["start_time"]) * FRAME_RATE
         )
 
         if action["type"] == "jump":
             height = action.get("params", {}).get("height", 2.0)
-            apply_jump(root_obj, current_frame, duration_frames, height)
+            apply_jump(root, frame, duration_frames, height)
 
         elif action["type"] == "wave":
             if armature:
-                apply_wave(armature, current_frame, duration_frames)
-            else:
-                # fallback for non-rigged models
-                root_obj.rotation_euler.z = 0
-                root_obj.keyframe_insert("rotation_euler", frame=current_frame)
-                root_obj.rotation_euler.z = 0.8
-                root_obj.keyframe_insert(
-                    "rotation_euler", frame=current_frame + duration_frames // 2
-                )
-                root_obj.rotation_euler.z = 0
-                root_obj.keyframe_insert(
-                    "rotation_euler", frame=current_frame + duration_frames
-                )
+                apply_wave(armature, frame, duration_frames)
 
-        current_frame += duration_frames
+        frame += duration_frames
 
-    bpy.context.scene.frame_end = current_frame + 5
+    bpy.context.scene.frame_end = frame + 5
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
-
-    print(f"Blend file generated at: {output_path}")
+    print(f"Blend file generated at {output_path}")
 
 
 if __name__ == "__main__":
